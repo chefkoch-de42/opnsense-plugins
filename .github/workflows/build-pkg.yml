@@ -124,11 +124,16 @@ jobs:
 
             ls -lh "${PKGS}"
 
+      - name: Sanitise artifact name
+        id: artifact_name
+        run: |
+          SAFE=$(echo "${{ matrix.plugin_dir }}" | tr '/' '_')
+          echo "name=pkg--${SAFE}" >> "$GITHUB_OUTPUT"
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          # Encode the path so parallel jobs don't collide
-          name: pkg--${{ matrix.plugin_dir == '' && 'unknown' || matrix.plugin_dir }}
+          name: ${{ steps.artifact_name.outputs.name }}
           path: work/*/pkgs/*.pkg
 
   # ───────────────────────────────────────────────────────────────────────────
