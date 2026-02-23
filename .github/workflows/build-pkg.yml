@@ -167,6 +167,10 @@ jobs:
               "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           fi
           mkdir -p gh-pages/packages
+          # Disable Jekyll so GitHub Pages serves ALL files (including binaries)
+          touch gh-pages/.nojekyll
+          # Remove any leftover nested package dirs from previous runs
+          find gh-pages/packages -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
 
       - name: Download all package artifacts
         uses: actions/download-artifact@v4
