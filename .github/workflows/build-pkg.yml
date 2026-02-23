@@ -98,18 +98,20 @@ jobs:
             (cd "${PLUGIN_DIR}/src" && find . -type f \
               | sed 's|^\./|/usr/local/|') > "${PLIST}"
 
-            # +MANIFEST
+            # +MANIFEST (no leading whitespace inside heredoc – pkg is strict)
+            DESC_TEXT=$(cat "${PLUGIN_DIR}/pkg-descr")
             cat > "${WORK}/+MANIFEST" <<MANIFEST
-            name: "os-${PKG_NAME}"
-            version: "${PKG_VERSION}"
-            origin: "${PKG_CATEGORY}/os-${PKG_NAME}"
-            comment: "${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}"
-            maintainer: "${{ github.actor }}@users.noreply.github.com"
-            www: "https://github.com/${{ github.repository }}"
-            prefix: "/usr/local"
-            licenselogic: "single"
-            licenses: [ "BSD2CLAUSE" ]
-            MANIFEST
+name: "os-${PKG_NAME}"
+version: "${PKG_VERSION}"
+origin: "${PKG_CATEGORY}/os-${PKG_NAME}"
+comment: "${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}"
+desc: "${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}"
+maintainer: "${{ github.actor }}@users.noreply.github.com"
+www: "https://github.com/${{ github.repository }}"
+prefix: "/usr/local"
+licenselogic: "single"
+licenses: [ "BSD2CLAUSE" ]
+MANIFEST
 
             # +DESC
             cp "${PLUGIN_DIR}/pkg-descr" "${WORK}/+DESC"
