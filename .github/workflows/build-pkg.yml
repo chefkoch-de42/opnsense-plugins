@@ -224,7 +224,7 @@ jobs:
           for PKG in gh-pages/packages/os-*.pkg; do
             [ -f "$PKG" ] || continue
             NAME=$(basename "$PKG" .pkg | sed 's/-[0-9].*//')
-            VER=$( basename "$PKG" .pkg | sed 's/^[^-]*-//')
+            VER=$( basename "$PKG" .pkg | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
             PKG_ROWS+="<tr><td><b>${NAME}</b></td><td>${VER}</td>"
             PKG_ROWS+="<td><code>pkg install ${NAME}</code></td></tr>\n"
           done
