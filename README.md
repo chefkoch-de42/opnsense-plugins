@@ -27,8 +27,8 @@ After installation go to **Services → WAN CARP Hook → Configuration**:
 
 ```sh
 # 1. Add the repository config
-fetch -o /usr/local/etc/pkg/repos/os-wancarp.conf \
-  https://YOUR_GITHUB_USER.github.io/os-wancarp/packages/os-wancarp.conf
+fetch -o /usr/local/etc/pkg/repos/opnsense-plugins.conf \
+  https://chefkoch-de42.github.io/opnsense-plugins/packages/opnsense-plugins.conf
 
 # 2. Install
 pkg update && pkg install os-wancarp
@@ -40,13 +40,13 @@ Alternatively add the repo URL in OPNsense under
 ### Repository URL
 
 ```
-https://YOUR_GITHUB_USER.github.io/os-wancarp/packages
+https://chefkoch-de42.github.io/opnsense-plugins/packages
 ```
 
 ## Manual installation
 
 ```sh
-git clone https://github.com/YOUR_GITHUB_USER/os-wancarp
+git clone https://github.com/chefkoch-de42/opnsense-plugins
 cd os-wancarp/sysutils/os-wancarp
 # on an OPNsense box with make/pkg available:
 make package
