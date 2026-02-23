@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<acl>
+    <page-wancarp-config>
+        <name>Services: WAN CARP Hook</name>
+        <patterns>
+            <pattern>ui/wancarp/*</pattern>
+            <pattern>api/wancarp/*</pattern>
+        </patterns>
+    </page-wancarp-config>
+</acl>
+

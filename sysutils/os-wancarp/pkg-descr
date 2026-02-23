@@ -1,0 +1,17 @@
+Automatically enables or disables a WAN interface based on CARP master/backup
+state changes. Installs a CARP syshook script that reads its configuration
+(interface key and trigger VHID) from the OPNsense GUI.
+
+When this node becomes CARP MASTER the selected WAN interface is brought up
+and re-configured (DHCP re-lease included). When the node drops to BACKUP the
+interface is shut down so only the master node holds the upstream connection.
+
+WWW: https://github.com/YOUR_GITHUB_USER/os-wancarp
+
+Plugin Changelog:
+-----------------
+
+1.0.0
+
+* Initial release
+

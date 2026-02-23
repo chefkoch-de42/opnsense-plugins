@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+    <Services>
+        <WanCarp cssClass="fa fa-exchange fa-fw">
+            <Configuration url="/ui/wancarp/general/index" order="10"/>
+        </WanCarp>
+    </Services>
+</menu>
+
