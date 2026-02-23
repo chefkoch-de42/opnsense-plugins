@@ -169,7 +169,11 @@ jobs:
           mkdir -p gh-pages/packages
           # Disable Jekyll so GitHub Pages serves ALL files (including binaries)
           touch gh-pages/.nojekyll
-          # Remove any leftover nested package dirs from previous runs
+          # Remove stale .pkg files and repo metadata from previous runs
+          rm -f gh-pages/packages/*.pkg gh-pages/packages/packagesite* \
+                gh-pages/packages/data* gh-pages/packages/meta* \
+                gh-pages/packages/*.conf
+          # Remove any leftover nested dirs
           find gh-pages/packages -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
 
       - name: Download all package artifacts
@@ -203,24 +207,26 @@ jobs:
           REPO_FULL="${{ github.repository }}"
           REPO_NAME="${{ github.event.repository.name }}"
 
-          # One repo config for ALL packages in this repo
+          # One repo config for ALL packages – valid FreeBSD/OPNsense UCL format
+          # signature_type: none  →  no signing required for community repos
           printf '%s\n' \
             "opnsense-plugins-${REPO_OWNER}: {" \
             "  url: \"${REPO_URL}\"," \
+            "  signature_type: \"none\"," \
             "  priority: 10," \
             "  enabled: yes" \
             "}" \
             > gh-pages/packages/opnsense-plugins.conf
 
-          # Build HTML plugin list
+          # Build HTML plugin list – only real plugin packages (os-*.pkg)
+          # Skip pkg repo metadata files: data.pkg, packagesite.pkg, meta, etc.
           PKG_ROWS=""
-          for PKG in gh-pages/packages/*.pkg; do
+          for PKG in gh-pages/packages/os-*.pkg; do
             [ -f "$PKG" ] || continue
             NAME=$(basename "$PKG" .pkg | sed 's/-[0-9].*//')
-            VER=$( basename "$PKG" .pkg | sed 's/^[^0-9]*-//')
+            VER=$( basename "$PKG" .pkg | sed 's/^[^-]*-//')
             PKG_ROWS+="<tr><td><b>${NAME}</b></td><td>${VER}</td>"
-            PKG_ROWS+="<td><code>pkg install ${NAME}</code></td>"
-            PKG_ROWS+="<td><a href=\"packages/${NAME}.conf\">.conf</a></td></tr>\n"
+            PKG_ROWS+="<td><code>pkg install ${NAME}</code></td></tr>\n"
           done
 
           cat > gh-pages/index.html <<EOF
@@ -257,7 +263,7 @@ jobs:
 
           <h2>Available plugins</h2>
           <table>
-            <tr><th>Package</th><th>Version</th><th>Install</th><th>Repo config</th></tr>
+            <tr><th>Package</th><th>Version</th><th>Install</th></tr>
             $(printf "%b" "${PKG_ROWS}")
           </table>
 
