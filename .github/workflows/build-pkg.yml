@@ -203,27 +203,14 @@ jobs:
           REPO_FULL="${{ github.repository }}"
           REPO_NAME="${{ github.event.repository.name }}"
 
-          # Single .conf that covers the whole repo
-          cat > gh-pages/packages/opnsense-plugins.conf <<EOF
-          opnsense-plugins-${REPO_OWNER}: {
-            url: "${REPO_URL}",
-            priority: 10,
-            enabled: yes
-          }
-          EOF
-
-          # Per-plugin .conf for selective installs
-          for PKG in gh-pages/packages/*.pkg; do
-            [ -f "$PKG" ] || continue
-            NAME=$(basename "$PKG" .pkg | sed 's/-[0-9].*//')
-            cat > "gh-pages/packages/${NAME}.conf" <<EOF
-          ${NAME}: {
-            url: "${REPO_URL}",
-            priority: 10,
-            enabled: yes
-          }
-          EOF
-          done
+          # One repo config for ALL packages in this repo
+          printf '%s\n' \
+            "opnsense-plugins-${REPO_OWNER}: {" \
+            "  url: \"${REPO_URL}\"," \
+            "  priority: 10," \
+            "  enabled: yes" \
+            "}" \
+            > gh-pages/packages/opnsense-plugins.conf
 
           # Build HTML plugin list
           PKG_ROWS=""
