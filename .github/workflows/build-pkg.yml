@@ -61,6 +61,7 @@ jobs:
       - name: Build FreeBSD .pkg inside a FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
+          release: "14.3"
           usesh: true
           prepare: |
             pkg install -y pkg
@@ -99,6 +100,7 @@ jobs:
               | sed 's|^\./|/usr/local/|') > "${PLIST}"
 
             # +MANIFEST – use printf so YAML indentation is not affected
+            # abi must match OPNsense's FreeBSD base: FreeBSD:14:amd64
             printf '%s\n' \
               "name: \"os-${PKG_NAME}\"" \
               "version: \"${PKG_VERSION}\"" \
@@ -110,6 +112,8 @@ jobs:
               "prefix: \"/usr/local\"" \
               "licenselogic: \"single\"" \
               "licenses: [ \"BSD2CLAUSE\" ]" \
+              "abi: \"FreeBSD:14:amd64\"" \
+              "arch: \"freebsd:14:x86:64\"" \
               > "${WORK}/+MANIFEST"
 
             # +DESC
@@ -191,6 +195,7 @@ jobs:
       - name: Run pkg repo inside a FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
+          release: "14.3"
           usesh: true
           prepare: |
             pkg install -y pkg
