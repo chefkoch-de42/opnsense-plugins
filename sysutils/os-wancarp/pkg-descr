@@ -6,12 +6,43 @@ When this node becomes CARP MASTER the selected WAN interface is brought up
 and re-configured (DHCP re-lease included). When the node drops to BACKUP the
 interface is shut down so only the master node holds the upstream connection.
 
-WWW: https://github.com/YOUR_GITHUB_USER/os-wancarp
+IMPORTANT – Routing requirements
+---------------------------------
+Because only the MASTER firewall has an active WAN interface, the BACKUP
+firewall must route all outbound traffic through the MASTER. This requires
+the following static routes on BOTH firewalls:
+
+IPv4
+  Default route (0.0.0.0/0) via the LAN-side CARP VIP (e.g. 192.168.x.254).
+  OPNsense: System > Routes > Configuration
+  Gateway:  the shared LAN CARP VIP address of both firewalls
+
+IPv6
+  FreeBSD has a known issue where CARP failover does not automatically
+  update IPv6 routing. Therefore the default IPv6 route must point to the
+  link-local address of the respective peer interface on the LAN segment,
+  NOT to a CARP VIP.
+
+  On FW1: default IPv6 GW = link-local address of FW2 LAN interface
+          (e.g. fe80::xxxx:xxxx:xxxx:xxxx%<LAN-if>)
+  On FW2: default IPv6 GW = link-local address of FW1 LAN interface
+          (e.g. fe80::xxxx:xxxx:xxxx:xxxx%<LAN-if>)
+
+  OPNsense: System > Routes > Configuration
+  Use the static gateway entries for each peer's link-local address.
+
+  Background: with a shared CARP VIP as IPv6 gateway the BACKUP node would
+  lose its default route during failover because the VIP moves to the MASTER
+  and the local neighbour cache entry becomes stale. Using the peer's
+  link-local address avoids this problem since it is always reachable on
+  the LAN segment regardless of CARP state.
+
+WWW: https://github.com/chefkoch-de42/opnsense-plugins
 
 Plugin Changelog:
 -----------------
 
-1.0.0
+0.0.1
 
 * Initial release
 
