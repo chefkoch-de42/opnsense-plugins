@@ -173,7 +173,12 @@ jobs:
         with:
           pattern: pkg--*
           merge-multiple: true
-          path: gh-pages/packages
+          path: gh-pages/packages/download
+
+      - name: Flatten downloaded packages into packages/
+        run: |
+          find gh-pages/packages/download -name '*.pkg' -exec mv {} gh-pages/packages/ \;
+          rm -rf gh-pages/packages/download
 
       - name: Run pkg repo inside a FreeBSD VM
         uses: vmactions/freebsd-vm@v1
