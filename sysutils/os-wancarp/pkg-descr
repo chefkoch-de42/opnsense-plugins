@@ -42,6 +42,12 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 Plugin Changelog:
 -----------------
 
+0.0.6
+
+* Fix "(misconfigured)": post-install now directly writes os-wancarp into
+  system.firmware.plugins in config.xml so OPNsense firmware page shows
+  "installed" instead of "misconfigured"
+
 0.0.5
 
 * Fix "(misconfigured)" label: add post-install/post-deinstall pkg scripts
