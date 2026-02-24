@@ -10,11 +10,12 @@
                 <Required>Y</Required>
             </enabled>
             <ifkey type="InterfaceField">
-                <Required>Y</Required>
+                <Required>N</Required>
+                <AllowDynamic>1</AllowDynamic>
                 <ValidationMessage>Please select a valid interface.</ValidationMessage>
             </ifkey>
             <vhid type="IntegerField">
-                <Default>1</Default>
+                <Default></Default>
                 <Required>N</Required>
                 <MinimumValue>1</MinimumValue>
                 <MaximumValue>255</MaximumValue>
@@ -23,4 +24,3 @@
         </general>
     </items>
 </model>
-
