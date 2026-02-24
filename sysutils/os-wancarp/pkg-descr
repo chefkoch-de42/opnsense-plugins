@@ -42,6 +42,11 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 Plugin Changelog:
 -----------------
 
+0.0.8
+
+* Fix interface dropdown: destroy and re-init selectpicker after
+  mapDataToFormUI injects options so bootstrap-select renders correctly
+
 0.0.7
 
 * Fix interface dropdown not showing options: initialize selectpicker()

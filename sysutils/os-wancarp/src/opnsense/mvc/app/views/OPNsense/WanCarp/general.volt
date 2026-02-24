@@ -61,12 +61,11 @@ POSSIBILITY OF SUCH DAMAGE.
 
 <script>
 $(function () {
-    // Initialize selectpicker BEFORE loading data so setFormData can refresh it
-    $('.selectpicker').selectpicker();
-
     mapDataToFormUI({'frm_general_settings': "/api/wancarp/general/get"}).done(function (data) {
         formatTokenizersUI();
-        $('.selectpicker').selectpicker('refresh');
+        // Destroy and re-init selectpicker after options have been injected by setFormData
+        $('.selectpicker').selectpicker('destroy');
+        $('.selectpicker').selectpicker();
     });
 
     $("#saveAct").click(function () {
