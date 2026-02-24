@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <model>
     <mount>//OPNsense/wancarp</mount>
-    <version>1.0.0</version>
+    <version>0.0.0</version>
     <description>WAN CARP Hook Settings</description>
     <items>
         <general>
