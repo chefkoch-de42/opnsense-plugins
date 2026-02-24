@@ -126,10 +126,16 @@ jobs:
             mkdir -p "${PKGS_OUT}"
 
             for PLUGIN_DIR in ${PLUGIN_DIRS}; do
-              PKG_NAME=$(   grep '^PLUGIN_NAME'    "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
-              PKG_VERSION=$(grep '^PLUGIN_VERSION' "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
-              PKG_COMMENT=$(grep '^PLUGIN_COMMENT' "${PLUGIN_DIR}/Makefile" | cut -d= -f2- | sed 's/^[[:space:]]*//')
+              PKG_NAME=$(      grep '^PLUGIN_NAME'       "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
+              PKG_VERSION=$(   grep '^PLUGIN_VERSION'    "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
+              PKG_COMMENT=$(   grep '^PLUGIN_COMMENT'    "${PLUGIN_DIR}/Makefile" | cut -d= -f2- | sed 's/^[[:space:]]*//')
+              PKG_MAINTAINER=$(grep '^PLUGIN_MAINTAINER' "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
+              PKG_WWW=$(       grep '^PLUGIN_WWW'        "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
               PKG_CATEGORY=$(echo "${PLUGIN_DIR}" | cut -d/ -f1)
+              # OPNsense ABI = OPNsense major.minor series (NOT FreeBSD version)
+              # Must match the installed OPNsense series, e.g. 26.1
+              PKG_ABI=$(grep '^PLUGIN_ABI' "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
+              PKG_ABI="${PKG_ABI:-26.1}"
 
               echo "==> Building os-${PKG_NAME}-${PKG_VERSION} from ${PLUGIN_DIR}"
 
@@ -149,12 +155,32 @@ jobs:
               find "${STAGE}/usr/local/etc/rc.syshook.d" -type f \
                 -exec chmod +x {} \; 2>/dev/null || true
 
+              # Replace placeholders in the opnsense/version file
+              VERSION_FILE="${STAGE}/usr/local/opnsense/version/os-${PKG_NAME}"
+              if [ -f "${VERSION_FILE}" ]; then
+                sed -i '' \
+                  -e "s|%%PLUGIN_ABI%%|${PKG_ABI}|g" \
+                  -e "s|%%PLUGIN_NAME%%|${PKG_NAME}|g" \
+                  -e "s|%%PLUGIN_VERSION%%|${PKG_VERSION}|g" \
+                  -e "s|%%PLUGIN_MAINTAINER%%|${PKG_MAINTAINER:-${{ github.actor }}@users.noreply.github.com}|g" \
+                  -e "s|%%PLUGIN_WWW%%|${PKG_WWW:-https://github.com/${{ github.repository }}}|g" \
+                  "${VERSION_FILE}"
+                echo "==> version file:"
+                cat "${VERSION_FILE}"
+              fi
+
               # plist
               PLIST="${WORK}/plist"
               (cd "${PLUGIN_DIR}/src" && find . -type f \
                 | sed 's|^\./|/usr/local/|') > "${PLIST}"
 
               # +MANIFEST  (abi must match OPNsense: FreeBSD:14:amd64)
+              # scripts block registers plugin with rc.configure_plugins (fixes 'misconfigured')
+              POST_INSTALL="if [ -f /usr/local/etc/rc.d/configd ]; then /usr/local/etc/rc.d/configd restart; fi"
+              POST_INSTALL="${POST_INSTALL}\nif [ -f /usr/local/opnsense/mvc/script/run_migrations.php ]; then /usr/local/opnsense/mvc/script/run_migrations.php OPNsense/WanCarp; fi"
+              POST_INSTALL="${POST_INSTALL}\nif [ -f /usr/local/etc/rc.configure_plugins ]; then /usr/local/etc/rc.configure_plugins POST_INSTALL; fi"
+              POST_DEINSTALL="if [ -f /usr/local/etc/rc.configure_plugins ]; then /usr/local/etc/rc.configure_plugins POST_DEINSTALL; fi"
+
               printf '%s\n' \
                 "name: \"os-${PKG_NAME}\"" \
                 "version: \"${PKG_VERSION}\"" \
@@ -168,6 +194,10 @@ jobs:
                 "licenses: [ \"BSD2CLAUSE\" ]" \
                 "abi: \"FreeBSD:14:amd64\"" \
                 "arch: \"freebsd:14:x86:64\"" \
+                "scripts: {" \
+                "  post-install: \"${POST_INSTALL}\"," \
+                "  post-deinstall: \"${POST_DEINSTALL}\"" \
+                "}" \
                 > "${WORK}/+MANIFEST"
 
               cp "${PLUGIN_DIR}/pkg-descr" "${WORK}/+DESC"

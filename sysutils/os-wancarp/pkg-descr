@@ -42,6 +42,18 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 Plugin Changelog:
 -----------------
 
+0.0.5
+
+* Fix "(misconfigured)" label: add post-install/post-deinstall pkg scripts
+  to register plugin in system.firmware.plugins via rc.configure_plugins
+* Add /usr/local/opnsense/version/os-wancarp with correct product_abi=26.1
+* Add PLUGIN_ABI to Makefile (OPNsense series, not FreeBSD version)
+
+0.0.4
+
+* Fix "(misconfigured)" label: add /usr/local/opnsense/version/os-wancarp
+  file required by opnsense-version -c check
+
 0.0.4
 
 * Fix "(misconfigured)" label in GUI: set model version to 0.0.0 to match

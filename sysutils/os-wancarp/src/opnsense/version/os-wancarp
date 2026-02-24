@@ -1,0 +1,12 @@
+{
+    "product_abi": "%%PLUGIN_ABI%%",
+    "product_arch": "amd64",
+    "product_conflicts": "",
+    "product_email": "%%PLUGIN_MAINTAINER%%",
+    "product_id": "os-%%PLUGIN_NAME%%",
+    "product_name": "%%PLUGIN_NAME%%",
+    "product_tier": "3",
+    "product_version": "%%PLUGIN_VERSION%%",
+    "product_website": "%%PLUGIN_WWW%%"
+}
+
