@@ -26,6 +26,7 @@ jobs:
       matrix: ${{ steps.scan.outputs.matrix }}
       is_release: ${{ steps.scan.outputs.is_release }}
       release_tag: ${{ steps.scan.outputs.release_tag }}
+      plugin_name: ${{ steps.scan.outputs.plugin_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +61,7 @@ jobs:
               exit 1
             fi
             json=$(python3 -c "import json; print(json.dumps({'include': [{'plugin_dir': '${PLUGIN_DIR}'}]}))")
+            PLUGIN_NAME_OUT="os-${DIR_NAME}"
           else
             # Normal push – build all plugins
             plugins=()
@@ -76,11 +78,13 @@ jobs:
           dirs = [l.strip() for l in sys.stdin if l.strip()]
           print(json.dumps({'include': [{'plugin_dir': d} for d in dirs]}))
           ")
+            PLUGIN_NAME_OUT=""
           fi
 
-          echo "matrix=${json}"       >> "$GITHUB_OUTPUT"
-          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
-          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "matrix=${json}"               >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}"     >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
+          echo "plugin_name=${PLUGIN_NAME_OUT}" >> "$GITHUB_OUTPUT"
           echo "Found: ${json}  is_release=${IS_RELEASE}  tag=${RELEASE_TAG}"
 
   # ───────────────────────────────────────────────────────────────────────────
@@ -362,7 +366,7 @@ jobs:
             fetch -o /usr/local/etc/pkg/repos/opnsense-plugins.conf \
               https://chefkoch-de42.github.io/opnsense-plugins/packages/opnsense-plugins.conf
 
-            pkg update && pkg install ${{ startsWith(needs.discover.outputs.release_tag, 'os-') && needs.discover.outputs.release_tag || format('os-{0}', needs.discover.outputs.release_tag) }}
+            pkg update && pkg install ${{ needs.discover.outputs.plugin_name }}
             ```
 
             Or install the `.pkg` file directly (no repo needed):
