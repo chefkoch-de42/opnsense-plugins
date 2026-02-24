@@ -178,7 +178,7 @@ jobs:
               # scripts block registers plugin with rc.configure_plugins (fixes 'misconfigured')
               POST_INSTALL="if [ -f /usr/local/etc/rc.d/configd ]; then /usr/local/etc/rc.d/configd restart; fi"
               POST_INSTALL="${POST_INSTALL}\nif [ -f /usr/local/opnsense/mvc/script/run_migrations.php ]; then /usr/local/opnsense/mvc/script/run_migrations.php OPNsense/WanCarp; fi"
-              POST_INSTALL="${POST_INSTALL}\n/usr/local/bin/php -r \"require_once 'config.inc'; require_once 'util.inc'; global \\\$config; \\\$cur = isset(\\\$config['system']['firmware']['plugins']) ? \\\$config['system']['firmware']['plugins'] : ''; \\\$pl = array_filter(explode(',', \\\$cur)); if (!in_array('os-${PKG_NAME}', \\\$pl)) { \\\$pl[] = 'os-${PKG_NAME}'; \\\$config['system']['firmware']['plugins'] = implode(',', \\\$pl); write_config('os-${PKG_NAME} registered'); }\""
+              POST_INSTALL="${POST_INSTALL}\nif [ -f /usr/local/opnsense/scripts/WanCarp/register.php ]; then /usr/local/bin/php /usr/local/opnsense/scripts/WanCarp/register.php; fi"
               POST_INSTALL="${POST_INSTALL}\nif [ -f /usr/local/etc/rc.configure_plugins ]; then /usr/local/etc/rc.configure_plugins POST_INSTALL; fi"
               POST_DEINSTALL="if [ -f /usr/local/etc/rc.configure_plugins ]; then /usr/local/etc/rc.configure_plugins POST_DEINSTALL; fi"
 
