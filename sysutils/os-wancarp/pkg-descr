@@ -42,6 +42,12 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 Plugin Changelog:
 -----------------
 
+0.0.7
+
+* Fix interface dropdown not showing options: initialize selectpicker()
+  before mapDataToFormUI() so setFormData() can correctly refresh the
+  bootstrap-select widget after inserting the option elements
+
 0.0.6
 
 * Fix "(misconfigured)": post-install now directly writes os-wancarp into
