@@ -33,6 +33,6 @@ use OPNsense\Base\ApiMutableModelControllerBase;
 class GeneralController extends ApiMutableModelControllerBase
 {
     protected static $internalModelClass = '\OPNsense\WanCarp\General';
-    protected static $internalModelName = 'general';
+    protected static $internalModelName = 'wancarp';
 }
 

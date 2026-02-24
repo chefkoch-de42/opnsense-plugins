@@ -42,6 +42,24 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 Plugin Changelog:
 -----------------
 
+0.0.9
+
+* Fix interface dropdown: root cause was double-nested JSON response.
+  internalModelName='general' + model root tag <general> caused the API
+  to return {"general":{"general":{...}}} so setFormData could never
+  match element ids. Fixed by changing internalModelName to 'wancarp'
+  and updating all form field ids to wancarp.general.* accordingly.
+  selectpicker() is now initialized inside mapDataToFormUI().done()
+  after the options have been injected into the DOM.
+
+0.0.8
+
+* Fix interface dropdown (definitive): call selectpicker() init INSIDE
+  mapDataToFormUI().done() so it runs after setFormData has injected
+  the option elements into the <select>. The OPNsense layout does NOT
+  auto-initialize selectpicker, so the init must happen after the
+  options are present in the DOM.
+
 0.0.8
 
 * Fix interface dropdown: destroy and re-init selectpicker after

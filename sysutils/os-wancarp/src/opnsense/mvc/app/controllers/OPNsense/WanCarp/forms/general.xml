@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <form>
     <field>
-        <id>general.enabled</id>
+        <id>wancarp.general.enabled</id>
         <label>Enable WAN CARP Hook</label>
         <type>checkbox</type>
         <help>Enable automatic WAN interface up/down switching on CARP master/backup transitions.</help>
     </field>
     <field>
-        <id>general.ifkey</id>
+        <id>wancarp.general.ifkey</id>
         <label>WAN Interface</label>
         <type>dropdown</type>
         <help>Select the WAN interface to enable/disable on CARP state changes.</help>
     </field>
     <field>
-        <id>general.vhid</id>
+        <id>wancarp.general.vhid</id>
         <label>Trigger VHID</label>
         <type>text</type>
         <help>CARP Virtual Host ID that triggers the WAN switch. Leave empty to react to all CARP events.</help>

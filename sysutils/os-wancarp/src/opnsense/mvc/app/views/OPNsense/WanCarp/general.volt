@@ -61,10 +61,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 <script>
 $(function () {
-    mapDataToFormUI({'frm_general_settings': "/api/wancarp/general/get"}).done(function (data) {
+    var data_get_map = {'frm_general_settings': "/api/wancarp/general/get"};
+    mapDataToFormUI(data_get_map).done(function (data) {
         formatTokenizersUI();
-        // Destroy and re-init selectpicker after options have been injected by setFormData
-        $('.selectpicker').selectpicker('destroy');
         $('.selectpicker').selectpicker();
     });
 
@@ -74,7 +73,6 @@ $(function () {
             formid = 'frm_general_settings',
             callback_ok = function () {
                 $("#saveAct_progress").addClass("fa fa-spinner fa-pulse");
-                // No daemon to reconfigure, just acknowledge save
                 $("#saveAct_progress").removeClass("fa fa-spinner fa-pulse");
             }
         );
