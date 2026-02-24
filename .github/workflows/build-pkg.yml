@@ -15,16 +15,15 @@ permissions:
 
 jobs:
   # ───────────────────────────────────────────────────────────────────────────
-  # JOB 1 – find every sub-directory that has a Makefile with PLUGIN_NAME set
-  #          and turn it into a build-matrix.
+  # JOB 1 – find every sub-directory that has a Makefile with PLUGIN_NAME set.
   #          On a tag push only the tagged plugin is built.
   # ───────────────────────────────────────────────────────────────────────────
   discover:
     name: Discover plugins
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.scan.outputs.matrix }}
-      is_release: ${{ steps.scan.outputs.is_release }}
+      plugin_dirs: ${{ steps.scan.outputs.plugin_dirs }}
+      is_release:  ${{ steps.scan.outputs.is_release }}
       release_tag: ${{ steps.scan.outputs.release_tag }}
       plugin_name: ${{ steps.scan.outputs.plugin_name }}
     steps:
@@ -36,16 +35,14 @@ jobs:
           REF="${{ github.ref }}"
           IS_RELEASE="false"
           RELEASE_TAG=""
+          PLUGIN_NAME_OUT=""
 
-          # Check if this is a tag push (refs/tags/os-<name>/<version>)
           if [[ "${REF}" == refs/tags/os-*/* ]]; then
             IS_RELEASE="true"
-            RELEASE_TAG="${REF#refs/tags/}"   # e.g. os-wancarp/0.0.2
-            PLUGIN_NAME="${RELEASE_TAG%%/*}"  # e.g. os-wancarp
-            # Strip leading "os-" to match directory name
-            DIR_NAME="${PLUGIN_NAME#os-}"     # e.g. wancarp
+            RELEASE_TAG="${REF#refs/tags/}"
+            PLUGIN_NAME="${RELEASE_TAG%%/*}"
+            DIR_NAME="${PLUGIN_NAME#os-}"
 
-            # Find the matching plugin directory
             PLUGIN_DIR=""
             while IFS= read -r makefile; do
               dir=$(dirname "$makefile")
@@ -60,141 +57,34 @@ jobs:
               echo "ERROR: no plugin directory found for tag ${RELEASE_TAG}" >&2
               exit 1
             fi
-            json=$(python3 -c "import json; print(json.dumps({'include': [{'plugin_dir': '${PLUGIN_DIR}'}]}))")
+            DIRS="${PLUGIN_DIR}"
             PLUGIN_NAME_OUT="os-${DIR_NAME}"
           else
-            # Normal push – build all plugins
-            plugins=()
+            DIRS=""
             while IFS= read -r makefile; do
               dir=$(dirname "$makefile")
               if grep -q '^PLUGIN_NAME' "$makefile" 2>/dev/null; then
-                plugins+=("${dir#./}")
+                DIRS="${DIRS:+${DIRS} }${dir#./}"
               fi
             done < <(find . -mindepth 2 -maxdepth 3 -name Makefile | sort)
-
-            json=$(printf '%s\n' "${plugins[@]}" | \
-              python3 -c "
-          import sys, json
-          dirs = [l.strip() for l in sys.stdin if l.strip()]
-          print(json.dumps({'include': [{'plugin_dir': d} for d in dirs]}))
-          ")
-            PLUGIN_NAME_OUT=""
           fi
 
-          echo "matrix=${json}"               >> "$GITHUB_OUTPUT"
-          echo "is_release=${IS_RELEASE}"     >> "$GITHUB_OUTPUT"
-          echo "release_tag=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
+          echo "plugin_dirs=${DIRS}"            >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}"       >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}"     >> "$GITHUB_OUTPUT"
           echo "plugin_name=${PLUGIN_NAME_OUT}" >> "$GITHUB_OUTPUT"
-          echo "Found: ${json}  is_release=${IS_RELEASE}  tag=${RELEASE_TAG}"
+          echo "Plugins: ${DIRS}  is_release=${IS_RELEASE}  tag=${RELEASE_TAG}"
 
   # ───────────────────────────────────────────────────────────────────────────
-  # JOB 2 – build one .pkg per discovered plugin (runs in parallel)
+  # JOB 2 – build all .pkg files AND run pkg repo – all in ONE FreeBSD VM
   # ───────────────────────────────────────────────────────────────────────────
-  build:
-    name: Build ${{ matrix.plugin_dir }}
+  build-and-repo:
+    name: Build packages + pkg repo
     needs: discover
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Build FreeBSD .pkg inside a FreeBSD VM
-        uses: vmactions/freebsd-vm@v1
-        with:
-          release: "14.3"
-          usesh: true
-          prepare: |
-            pkg install -y pkg
-          run: |
-            set -e
-
-            PLUGIN_DIR="${{ matrix.plugin_dir }}"
-
-            PKG_NAME=$(   grep '^PLUGIN_NAME'    "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
-            PKG_VERSION=$(grep '^PLUGIN_VERSION' "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
-            PKG_COMMENT=$(grep '^PLUGIN_COMMENT' "${PLUGIN_DIR}/Makefile" | cut -d= -f2- | sed 's/^[[:space:]]*//')
-            PKG_CATEGORY=$(echo "${PLUGIN_DIR}" | cut -d/ -f1)
-
-            echo "==> Building os-${PKG_NAME}-${PKG_VERSION} from ${PLUGIN_DIR}"
-
-            WORK="${GITHUB_WORKSPACE}/work/${PKG_NAME}"
-            STAGE="${WORK}/stage"
-            PKGS="${WORK}/pkgs"
-            mkdir -p "${STAGE}/usr/local" "${PKGS}"
-
-            # Stage all source files
-            (cd "${PLUGIN_DIR}/src" && find . -type f) | while read -r FILE; do
-              SRC="${PLUGIN_DIR}/src/${FILE#./}"
-              DST="${STAGE}/usr/local/${FILE#./}"
-              mkdir -p "$(dirname "${DST}")"
-              cp "${SRC}" "${DST}"
-            done
-
-            # Make syshook scripts executable
-            find "${STAGE}/usr/local/etc/rc.syshook.d" -type f \
-              -exec chmod +x {} \; 2>/dev/null || true
-
-            # plist
-            PLIST="${WORK}/plist"
-            (cd "${PLUGIN_DIR}/src" && find . -type f \
-              | sed 's|^\./|/usr/local/|') > "${PLIST}"
-
-            # +MANIFEST – use printf so YAML indentation is not affected
-            # abi must match OPNsense's FreeBSD base: FreeBSD:14:amd64
-            printf '%s\n' \
-              "name: \"os-${PKG_NAME}\"" \
-              "version: \"${PKG_VERSION}\"" \
-              "origin: \"${PKG_CATEGORY}/os-${PKG_NAME}\"" \
-              "comment: \"${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}\"" \
-              "desc: \"${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}\"" \
-              "maintainer: \"${{ github.actor }}@users.noreply.github.com\"" \
-              "www: \"https://github.com/${{ github.repository }}\"" \
-              "prefix: \"/usr/local\"" \
-              "licenselogic: \"single\"" \
-              "licenses: [ \"BSD2CLAUSE\" ]" \
-              "abi: \"FreeBSD:14:amd64\"" \
-              "arch: \"freebsd:14:x86:64\"" \
-              > "${WORK}/+MANIFEST"
-
-            # +DESC
-            cp "${PLUGIN_DIR}/pkg-descr" "${WORK}/+DESC"
-
-            # Build package
-            pkg create \
-              --root-dir "${STAGE}" \
-              --manifest "${WORK}/+MANIFEST" \
-              --plist    "${PLIST}" \
-              --out-dir  "${PKGS}"
-
-            ls -lh "${PKGS}"
-
-      - name: Sanitise artifact name
-        id: artifact_name
-        run: |
-          SAFE=$(echo "${{ matrix.plugin_dir }}" | tr '/' '_')
-          echo "name=pkg--${SAFE}" >> "$GITHUB_OUTPUT"
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.artifact_name.outputs.name }}
-          path: work/*/pkgs/*.pkg
-
-  # ───────────────────────────────────────────────────────────────────────────
-  # JOB 3 – collect all .pkg files, run `pkg repo`, push to gh-pages
-  # ───────────────────────────────────────────────────────────────────────────
-  publish:
-    name: Publish pkg repo to GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: source
 
       - name: Checkout gh-pages (create if missing)
         uses: actions/checkout@v4
@@ -214,28 +104,14 @@ jobs:
               "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           fi
           mkdir -p gh-pages/packages
-          # Disable Jekyll so GitHub Pages serves ALL files (including binaries)
           touch gh-pages/.nojekyll
-          # Remove stale .pkg files and repo metadata from previous runs
-          rm -f gh-pages/packages/*.pkg gh-pages/packages/packagesite* \
-                gh-pages/packages/data* gh-pages/packages/meta* \
+          # Remove stale pkg data from previous runs
+          rm -f gh-pages/packages/*.pkg  gh-pages/packages/packagesite* \
+                gh-pages/packages/data*  gh-pages/packages/meta* \
                 gh-pages/packages/*.conf
-          # Remove any leftover nested dirs
           find gh-pages/packages -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
 
-      - name: Download all package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: pkg--*
-          merge-multiple: true
-          path: gh-pages/packages/download
-
-      - name: Flatten downloaded packages into packages/
-        run: |
-          find gh-pages/packages/download -name '*.pkg' -exec mv {} gh-pages/packages/ \;
-          rm -rf gh-pages/packages/download
-
-      - name: Run pkg repo inside a FreeBSD VM
+      - name: Build all packages + run pkg repo (single FreeBSD VM)
         uses: vmactions/freebsd-vm@v1
         with:
           release: "14.3"
@@ -244,19 +120,80 @@ jobs:
             pkg install -y pkg
           run: |
             set -e
-            cd "${GITHUB_WORKSPACE}/gh-pages/packages"
-            pkg repo .
-            ls -lh
 
-      - name: Generate .conf files and landing page
+            PLUGIN_DIRS="${{ needs.discover.outputs.plugin_dirs }}"
+            PKGS_OUT="${GITHUB_WORKSPACE}/gh-pages/packages"
+            mkdir -p "${PKGS_OUT}"
+
+            for PLUGIN_DIR in ${PLUGIN_DIRS}; do
+              PKG_NAME=$(   grep '^PLUGIN_NAME'    "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
+              PKG_VERSION=$(grep '^PLUGIN_VERSION' "${PLUGIN_DIR}/Makefile" | awk '{print $2}')
+              PKG_COMMENT=$(grep '^PLUGIN_COMMENT' "${PLUGIN_DIR}/Makefile" | cut -d= -f2- | sed 's/^[[:space:]]*//')
+              PKG_CATEGORY=$(echo "${PLUGIN_DIR}" | cut -d/ -f1)
+
+              echo "==> Building os-${PKG_NAME}-${PKG_VERSION} from ${PLUGIN_DIR}"
+
+              WORK="${GITHUB_WORKSPACE}/work/${PKG_NAME}"
+              STAGE="${WORK}/stage"
+              mkdir -p "${STAGE}/usr/local"
+
+              # Stage source files
+              (cd "${PLUGIN_DIR}/src" && find . -type f) | while read -r FILE; do
+                SRC="${PLUGIN_DIR}/src/${FILE#./}"
+                DST="${STAGE}/usr/local/${FILE#./}"
+                mkdir -p "$(dirname "${DST}")"
+                cp "${SRC}" "${DST}"
+              done
+
+              # Make syshook scripts executable
+              find "${STAGE}/usr/local/etc/rc.syshook.d" -type f \
+                -exec chmod +x {} \; 2>/dev/null || true
+
+              # plist
+              PLIST="${WORK}/plist"
+              (cd "${PLUGIN_DIR}/src" && find . -type f \
+                | sed 's|^\./|/usr/local/|') > "${PLIST}"
+
+              # +MANIFEST  (abi must match OPNsense: FreeBSD:14:amd64)
+              printf '%s\n' \
+                "name: \"os-${PKG_NAME}\"" \
+                "version: \"${PKG_VERSION}\"" \
+                "origin: \"${PKG_CATEGORY}/os-${PKG_NAME}\"" \
+                "comment: \"${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}\"" \
+                "desc: \"${PKG_COMMENT:-OPNsense plugin ${PKG_NAME}}\"" \
+                "maintainer: \"${{ github.actor }}@users.noreply.github.com\"" \
+                "www: \"https://github.com/${{ github.repository }}\"" \
+                "prefix: \"/usr/local\"" \
+                "licenselogic: \"single\"" \
+                "licenses: [ \"BSD2CLAUSE\" ]" \
+                "abi: \"FreeBSD:14:amd64\"" \
+                "arch: \"freebsd:14:x86:64\"" \
+                > "${WORK}/+MANIFEST"
+
+              cp "${PLUGIN_DIR}/pkg-descr" "${WORK}/+DESC"
+
+              pkg create \
+                --root-dir "${STAGE}" \
+                --manifest "${WORK}/+MANIFEST" \
+                --plist    "${PLIST}" \
+                --out-dir  "${PKGS_OUT}"
+            done
+
+            echo "==> All packages built:"
+            ls -lh "${PKGS_OUT}"/*.pkg
+
+            # Build the pkg repo index in the same VM – no second VM needed
+            echo "==> Running pkg repo"
+            pkg repo "${PKGS_OUT}"
+            ls -lh "${PKGS_OUT}"
+
+      - name: Generate repo .conf and landing page
         run: |
           REPO_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/packages"
           REPO_OWNER="${{ github.repository_owner }}"
           REPO_FULL="${{ github.repository }}"
           REPO_NAME="${{ github.event.repository.name }}"
 
-          # One repo config for ALL packages – valid FreeBSD/OPNsense UCL format
-          # signature_type: none  →  no signing required for community repos
           printf '%s\n' \
             "opnsense-plugins-${REPO_OWNER}: {" \
             "  url: \"${REPO_URL}\"," \
@@ -266,8 +203,6 @@ jobs:
             "}" \
             > gh-pages/packages/opnsense-plugins.conf
 
-          # Build HTML plugin list – only real plugin packages (os-*.pkg)
-          # Skip pkg repo metadata files: data.pkg, packagesite.pkg, meta, etc.
           PKG_ROWS=""
           for PKG in gh-pages/packages/os-*.pkg; do
             [ -f "$PKG" ] || continue
@@ -282,7 +217,7 @@ jobs:
           <html lang="en">
           <head>
             <meta charset="utf-8">
-            <title>${REPO_NAME} – OPNsense Plugin Repository</title>
+            <title>${REPO_NAME} - OPNsense Plugin Repository</title>
             <style>
               body  { font-family: monospace; max-width: 860px; margin: 2em auto; padding: 0 1em; }
               pre   { background: #f4f4f4; padding: .8em; border-radius: 4px; overflow-x: auto; }
@@ -292,29 +227,23 @@ jobs:
             </style>
           </head>
           <body>
-          <h1>${REPO_NAME} – OPNsense FreeBSD pkg Repository</h1>
+          <h1>${REPO_NAME} - OPNsense FreeBSD pkg Repository</h1>
           <p>Built automatically from <a href="https://github.com/${REPO_FULL}">GitHub</a>
              on every push to <code>master</code>.</p>
-
           <h2>Setup</h2>
           <pre>
-          # 1. Add repository (covers all plugins below)
-          fetch -o /usr/local/etc/pkg/repos/${REPO_OWNER}-plugins.conf \
+          fetch -o /usr/local/etc/pkg/repos/${REPO_OWNER}-plugins.conf \\
             ${REPO_URL}/opnsense-plugins.conf
 
-          # 2. Install a plugin, e.g.:
           pkg update &amp;&amp; pkg install os-wancarp
           </pre>
-
           <h2>Repository URL</h2>
           <pre>${REPO_URL}</pre>
-
           <h2>Available plugins</h2>
           <table>
             <tr><th>Package</th><th>Version</th><th>Install</th></tr>
             $(printf "%b" "${PKG_ROWS}")
           </table>
-
           <p style="margin-top:2em;font-size:.85em">
             <a href="https://github.com/${REPO_FULL}">Source on GitHub</a>
           </p>
@@ -333,12 +262,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload package artifacts (for release job)
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: gh-pages/packages/os-*.pkg
+
   # ───────────────────────────────────────────────────────────────────────────
-  # JOB 4 – create a GitHub Release with the .pkg as asset (tag pushes only)
+  # JOB 3 – create a GitHub Release with the .pkg as asset (tag pushes only)
   # ───────────────────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [ discover, build, publish ]
+    needs: [ discover, build-and-repo ]
     if: needs.discover.outputs.is_release == 'true'
     runs-on: ubuntu-latest
 
@@ -346,12 +281,8 @@ jobs:
       - name: Download package artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: pkg--*
-          merge-multiple: true
+          name: packages
           path: release-assets
-
-      - name: Flatten to release-assets/
-        run: find release-assets -mindepth 2 -name '*.pkg' -exec mv {} release-assets/ \;
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
