@@ -3,6 +3,9 @@ name: Build & Publish FreeBSD pkg repo
 on:
   push:
     branches: [ "master" ]
+    # Tag format:  os-<plugin>/<version>  e.g. os-wancarp/0.0.2
+    tags:
+      - "os-*/*"
   workflow_dispatch:
 
 permissions:
@@ -14,35 +17,71 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   # JOB 1 – find every sub-directory that has a Makefile with PLUGIN_NAME set
   #          and turn it into a build-matrix.
+  #          On a tag push only the tagged plugin is built.
   # ───────────────────────────────────────────────────────────────────────────
   discover:
     name: Discover plugins
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.scan.outputs.matrix }}
+      is_release: ${{ steps.scan.outputs.is_release }}
+      release_tag: ${{ steps.scan.outputs.release_tag }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Scan for plugin Makefiles
         id: scan
         run: |
-          plugins=()
-          # Search 2–3 levels deep: <category>/<plugin-name>/Makefile
-          while IFS= read -r makefile; do
-            dir=$(dirname "$makefile")
-            if grep -q '^PLUGIN_NAME' "$makefile" 2>/dev/null; then
-              plugins+=("${dir#./}")
-            fi
-          done < <(find . -mindepth 2 -maxdepth 3 -name Makefile | sort)
+          REF="${{ github.ref }}"
+          IS_RELEASE="false"
+          RELEASE_TAG=""
 
-          json=$(printf '%s\n' "${plugins[@]}" | \
-            python3 -c "
+          # Check if this is a tag push (refs/tags/os-<name>/<version>)
+          if [[ "${REF}" == refs/tags/os-*/* ]]; then
+            IS_RELEASE="true"
+            RELEASE_TAG="${REF#refs/tags/}"   # e.g. os-wancarp/0.0.2
+            PLUGIN_NAME="${RELEASE_TAG%%/*}"  # e.g. os-wancarp
+            # Strip leading "os-" to match directory name
+            DIR_NAME="${PLUGIN_NAME#os-}"     # e.g. wancarp
+
+            # Find the matching plugin directory
+            PLUGIN_DIR=""
+            while IFS= read -r makefile; do
+              dir=$(dirname "$makefile")
+              name=$(grep '^PLUGIN_NAME' "$makefile" 2>/dev/null | awk '{print $2}')
+              if [ "${name}" = "${DIR_NAME}" ]; then
+                PLUGIN_DIR="${dir#./}"
+                break
+              fi
+            done < <(find . -mindepth 2 -maxdepth 3 -name Makefile | sort)
+
+            if [ -z "${PLUGIN_DIR}" ]; then
+              echo "ERROR: no plugin directory found for tag ${RELEASE_TAG}" >&2
+              exit 1
+            fi
+            json=$(python3 -c "import json; print(json.dumps({'include': [{'plugin_dir': '${PLUGIN_DIR}'}]}))")
+          else
+            # Normal push – build all plugins
+            plugins=()
+            while IFS= read -r makefile; do
+              dir=$(dirname "$makefile")
+              if grep -q '^PLUGIN_NAME' "$makefile" 2>/dev/null; then
+                plugins+=("${dir#./}")
+              fi
+            done < <(find . -mindepth 2 -maxdepth 3 -name Makefile | sort)
+
+            json=$(printf '%s\n' "${plugins[@]}" | \
+              python3 -c "
           import sys, json
           dirs = [l.strip() for l in sys.stdin if l.strip()]
           print(json.dumps({'include': [{'plugin_dir': d} for d in dirs]}))
           ")
-          echo "matrix=${json}" >> "$GITHUB_OUTPUT"
-          echo "Found plugins: ${plugins[*]}"
+          fi
+
+          echo "matrix=${json}"       >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Found: ${json}  is_release=${IS_RELEASE}  tag=${RELEASE_TAG}"
 
   # ───────────────────────────────────────────────────────────────────────────
   # JOB 2 – build one .pkg per discovered plugin (runs in parallel)
@@ -287,5 +326,52 @@ jobs:
           git add -A
           git commit -m "chore: publish pkg repo [skip ci]" || echo "Nothing to commit"
           git push origin HEAD:gh-pages --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB 4 – create a GitHub Release with the .pkg as asset (tag pushes only)
+  # ───────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [ discover, build, publish ]
+    if: needs.discover.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pkg--*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Flatten to release-assets/
+        run: find release-assets -mindepth 2 -name '*.pkg' -exec mv {} release-assets/ \;
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.discover.outputs.release_tag }}
+          name: ${{ needs.discover.outputs.release_tag }}
+          body: |
+            ## ${{ needs.discover.outputs.release_tag }}
+
+            Install via pkg repo (recommended):
+            ```sh
+            fetch -o /usr/local/etc/pkg/repos/opnsense-plugins.conf \
+              https://chefkoch-de42.github.io/opnsense-plugins/packages/opnsense-plugins.conf
+
+            pkg update && pkg install ${{ startsWith(needs.discover.outputs.release_tag, 'os-') && needs.discover.outputs.release_tag || format('os-{0}', needs.discover.outputs.release_tag) }}
+            ```
+
+            Or install the `.pkg` file directly (no repo needed):
+            ```sh
+            pkg add <direct-url-to-.pkg-file-from-assets-below>
+            ```
+
+            **pkg repo URL:** https://chefkoch-de42.github.io/opnsense-plugins/packages
+          files: release-assets/*.pkg
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
