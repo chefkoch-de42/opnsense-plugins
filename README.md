@@ -48,6 +48,8 @@ Any directory containing a `Makefile` with `PLUGIN_NAME` is picked up
 automatically by the build workflow – no changes to the workflow needed when
 adding new plugins.
 
+→ See [CONTRIBUTING.md](CONTRIBUTING.md) for build, release and contribution details.
+
 ---
 
 ## License
