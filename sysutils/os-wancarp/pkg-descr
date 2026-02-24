@@ -42,6 +42,12 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 Plugin Changelog:
 -----------------
 
+0.0.3
+
+* Fix interface dropdown: switch form type to dropdown, set InterfaceField
+  Required=N and AllowDynamic=1 so all configured interfaces appear and
+  the field can be saved without a "value required" validation error
+
 0.0.2
 
 * Fix PHP ParseError in GUI (apostrophe in Volt lang._() string)
