@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>opnsense-plugins – OPNsense Plugin Repository</title>
+  <title>opnsense-plugins - OPNsense Plugin Repository</title>
   <style>
     body  { font-family: monospace; max-width: 860px; margin: 2em auto; padding: 0 1em; }
     pre   { background: #f4f4f4; padding: .8em; border-radius: 4px; overflow-x: auto; }
@@ -12,28 +12,23 @@
   </style>
 </head>
 <body>
-<h1>opnsense-plugins – OPNsense FreeBSD pkg Repository</h1>
+<h1>opnsense-plugins - OPNsense FreeBSD pkg Repository</h1>
 <p>Built automatically from <a href="https://github.com/chefkoch-de42/opnsense-plugins">GitHub</a>
    on every push to <code>master</code>.</p>
-
 <h2>Setup</h2>
 <pre>
-# 1. Add repository (covers all plugins below)
-fetch -o /usr/local/etc/pkg/repos/chefkoch-de42-plugins.conf   https://chefkoch-de42.github.io/opnsense-plugins/packages/opnsense-plugins.conf
+fetch -o /usr/local/etc/pkg/repos/chefkoch-de42-plugins.conf \
+  https://chefkoch-de42.github.io/opnsense-plugins/packages/opnsense-plugins.conf
 
-# 2. Install a plugin, e.g.:
 pkg update &amp;&amp; pkg install os-wancarp
 </pre>
-
 <h2>Repository URL</h2>
 <pre>https://chefkoch-de42.github.io/opnsense-plugins/packages</pre>
-
 <h2>Available plugins</h2>
 <table>
   <tr><th>Package</th><th>Version</th><th>Install</th></tr>
-  <tr><td><b>os-wancarp</b></td><td>0.0.1</td><td><code>pkg install os-wancarp</code></td></tr>
+  <tr><td><b>os-wancarp</b></td><td>0.0.2</td><td><code>pkg install os-wancarp</code></td></tr>
 </table>
-
 <p style="margin-top:2em;font-size:.85em">
   <a href="https://github.com/chefkoch-de42/opnsense-plugins">Source on GitHub</a>
 </p>
