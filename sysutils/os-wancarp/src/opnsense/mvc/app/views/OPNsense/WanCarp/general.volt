@@ -30,20 +30,20 @@ POSSIBILITY OF SUCH DAMAGE.
 </div>
 
 <div class="alert alert-warning" role="alert">
-    <b>{{ lang._('Routing requirement – both firewalls') }}</b><br/>
+    <b>{{ lang._('Routing requirement - both firewalls') }}</b><br/>
     {{ lang._('Because only the MASTER firewall has an active WAN interface, the BACKUP firewall must route all traffic through the MASTER. Static routes must be configured on BOTH nodes.') }}
     <hr style="margin: 0.5em 0;"/>
     <b>{{ lang._('IPv4') }}</b><br/>
     {{ lang._('Set the default gateway (0.0.0.0/0) to the shared LAN-side CARP VIP on both firewalls.') }}<br/>
-    <small><i>{{ lang._('System → Gateways → Configuration → select the LAN CARP VIP gateway') }}</i></small>
+    <small><i>{{ lang._('System - Gateways - Configuration - select the LAN CARP VIP gateway') }}</i></small>
     <hr style="margin: 0.5em 0;"/>
     <b>{{ lang._('IPv6') }}</b><br/>
-    {{ lang._('Due to a FreeBSD CARP limitation, IPv6 routing does NOT follow the CARP VIP. You must set the default IPv6 route on each firewall to the link-local address of the peer\'s LAN interface:') }}
+    {{ lang._('Due to a FreeBSD CARP limitation, IPv6 routing does NOT follow the CARP VIP. Set the default IPv6 route on each firewall to the link-local address of the peer LAN interface:') }}
     <ul style="margin: 0.4em 0 0 1.2em;">
         <li>{{ lang._('FW1: default IPv6 GW = link-local address of FW2 LAN interface') }}</li>
         <li>{{ lang._('FW2: default IPv6 GW = link-local address of FW1 LAN interface') }}</li>
     </ul>
-    <small><i>{{ lang._('System → Gateways → Configuration → add a static gateway per peer using its fe80:: address and LAN interface') }}</i></small><br/>
+    <small><i>{{ lang._('System - Gateways - Configuration - add a static gateway per peer using its fe80:: address and LAN interface') }}</i></small><br/>
     <small>{{ lang._('Background: a CARP VIP as IPv6 GW causes the BACKUP node to lose its default route after failover because the neighbour cache entry goes stale. Link-local addresses are always reachable on the LAN segment regardless of CARP state.') }}</small>
 </div>
 
