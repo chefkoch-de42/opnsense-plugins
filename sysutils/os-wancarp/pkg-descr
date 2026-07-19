@@ -41,8 +41,21 @@ WWW: https://github.com/chefkoch-de42/opnsense-plugins
 
 Plugin Changelog:
 -----------------
+0.0.10
+
+* upgrade 26.7
 
 0.0.9
+
+* Fix interface dropdown: internalModelName was 'general' causing double-
+  nested JSON {"general":{"general":{...}}} - renamed to 'wancarp' and
+  updated form field IDs to wancarp.general.* accordingly
+* Fix carp hook script: model properties were accessed as $settings->enabled
+  instead of $settings->general->enabled causing the script to always exit
+  early with "plugin disabled" even when enabled=1 in config.xml
+* Add debug logging throughout the carp hook script via log_msg()
+
+0.0.8
 
 * Fix interface dropdown: root cause was double-nested JSON response.
   internalModelName='general' + model root tag <general> caused the API

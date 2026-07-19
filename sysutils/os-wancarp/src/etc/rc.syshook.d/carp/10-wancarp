@@ -34,6 +34,8 @@ require_once("system.inc");
 $subsystem = !empty($argv[1]) ? $argv[1] : '';
 $type      = !empty($argv[2]) ? $argv[2] : '';
 
+log_msg("wancarp: script started - subsystem='{$subsystem}' type='{$type}'");
+
 if (!in_array($type, ['MASTER', 'BACKUP', 'INIT'])) {
     log_msg("wancarp: unknown CARP event type '{$type}' from '{$subsystem}'");
     exit(1);
@@ -44,16 +46,22 @@ if (!strstr($subsystem, '@')) {
     exit(1);
 }
 
+log_msg("wancarp: loading model settings");
 // Load plugin settings from model
 $settings = new \OPNsense\WanCarp\General();
 
-$enabled = (string)$settings->enabled === '1';
+$enabled = (string)$settings->general->enabled === '1';
+log_msg("wancarp: enabled='" . (string)$settings->general->enabled . "' (bool=" . ($enabled ? 'true' : 'false') . ")");
+
 if (!$enabled) {
+    log_msg("wancarp: plugin disabled, exiting");
     exit(0);
 }
 
-$ifkey  = (string)$settings->ifkey;
-$vhid   = (string)$settings->vhid;
+$ifkey  = (string)$settings->general->ifkey;
+$vhid   = (string)$settings->general->vhid;
+
+log_msg("wancarp: ifkey='{$ifkey}' vhid='{$vhid}'");
 
 if (empty($ifkey)) {
     log_error("wancarp: no interface configured, aborting.");
@@ -62,26 +70,46 @@ if (empty($ifkey)) {
 
 // Only act when the configured VHID triggers (or if vhid is empty = act on all)
 if (!empty($vhid) && !preg_match('/^' . preg_quote($vhid, '/') . '@/', $subsystem)) {
+    log_msg("wancarp: subsystem '{$subsystem}' does not match configured vhid '{$vhid}', skipping");
     exit(0);
 }
 
 $real_if = get_real_interface($ifkey);
+log_msg("wancarp: resolved ifkey='{$ifkey}' to real_if='{$real_if}'");
+
+if (empty($real_if)) {
+    log_error("wancarp: could not resolve real interface for ifkey='{$ifkey}', aborting.");
+    exit(1);
+}
 
 if ($type === 'MASTER') {
     log_error("wancarp: enabling interface '{$ifkey}' ({$real_if}) due to CARP event '{$type}' on '{$subsystem}'");
     $config['interfaces'][$ifkey]['enable'] = '1';
+    log_msg("wancarp: writing config - enable '{$ifkey}'");
     write_config("wancarp: enable interface '{$ifkey}' due to CARP event '{$type}'", false);
+    log_msg("wancarp: calling interface_configure (1st pass)");
     interface_configure(false, $ifkey, false, false);
+    log_msg("wancarp: sleeping 2s");
     sleep(2);
-    shell_exec("/sbin/ifconfig " . escapeshellarg($real_if) . " up");
+    log_msg("wancarp: running ifconfig {$real_if} up");
+    $out = shell_exec("/sbin/ifconfig " . escapeshellarg($real_if) . " up 2>&1");
+    log_msg("wancarp: ifconfig up output='" . trim((string)$out) . "'");
     log_msg("wancarp: issuing interface_configure on '{$real_if}' to request a DHCP lease");
     sleep(1);
+    log_msg("wancarp: calling interface_configure (2nd pass)");
     interface_configure(false, $ifkey, false, false);
+    log_msg("wancarp: MASTER handling complete");
 } else {
     log_error("wancarp: disabling interface '{$ifkey}' ({$real_if}) due to CARP event '{$type}' on '{$subsystem}'");
     unset($config['interfaces'][$ifkey]['enable']);
+    log_msg("wancarp: writing config - disable '{$ifkey}'");
     write_config("wancarp: disable interface '{$ifkey}' due to CARP event '{$type}'", false);
+    log_msg("wancarp: calling interface_configure");
     interface_configure(false, $ifkey, false, false);
-    shell_exec("/sbin/ifconfig " . escapeshellarg($real_if) . " down");
+    log_msg("wancarp: running ifconfig {$real_if} down");
+    $out = shell_exec("/sbin/ifconfig " . escapeshellarg($real_if) . " down 2>&1");
+    log_msg("wancarp: ifconfig down output='" . trim((string)$out) . "'");
+    log_msg("wancarp: BACKUP/INIT handling complete");
 }
 
+log_msg("wancarp: script finished");

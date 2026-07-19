@@ -114,7 +114,7 @@ jobs:
       - name: Build all packages + run pkg repo (single FreeBSD VM)
         uses: vmactions/freebsd-vm@v1
         with:
-          release: "14.3"
+          release: "15.1"
           usesh: true
           prepare: |
             pkg install -y pkg
@@ -193,8 +193,8 @@ jobs:
                 "prefix: \"/usr/local\"" \
                 "licenselogic: \"single\"" \
                 "licenses: [ \"BSD2CLAUSE\" ]" \
-                "abi: \"FreeBSD:14:amd64\"" \
-                "arch: \"freebsd:14:x86:64\"" \
+                "abi: \"FreeBSD:15:amd64\"" \
+                "arch: \"freebsd:15:x86:64\"" \
                 "scripts: {" \
                 "  post-install: \"${POST_INSTALL}\"," \
                 "  post-deinstall: \"${POST_DEINSTALL}\"" \
